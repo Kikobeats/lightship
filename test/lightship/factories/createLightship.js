@@ -182,6 +182,53 @@ test('calling `shutdown` changes server state to SERVER_IS_SHUTTING_DOWN', async
   t.is(terminate.called, false);
 });
 
+test('calling `shutdown` respecting `kubeProxyTimeout` value', async (t) => {
+  const terminate = sinon.stub();
+
+  const lightship = createLightship({
+    kubeProxyTimeout: 1000,
+    terminate,
+  });
+
+  let shutdown;
+
+  lightship.registerShutdownHandler(() => {
+    return new Promise((resolve) => {
+      shutdown = resolve;
+    });
+  });
+
+  lightship.shutdown();
+
+  t.is(lightship.isServerReady(), false);
+  t.is(lightship.isServerShuttingDown(), false);
+
+  await delay(1000);
+
+  t.is(lightship.isServerReady(), true);
+  t.is(lightship.isServerShuttingDown(), true);
+
+  const serviceState = await getServiceState(lightship.server.address().port);
+
+  t.is(serviceState.health.status, 500);
+  t.is(serviceState.health.message, SERVER_IS_SHUTTING_DOWN);
+
+  t.is(serviceState.live.status, 500);
+  t.is(serviceState.live.message, SERVER_IS_SHUTTING_DOWN);
+
+  // @see https://github.com/gajus/lightship/issues/12
+  t.is(serviceState.ready.status, 200);
+  t.is(serviceState.ready.message, SERVER_IS_READY);
+
+  if (!shutdown) {
+    throw new Error('Unexpected state.');
+  }
+
+  await shutdown();
+
+  t.is(terminate.called, false);
+});
+
 test('error thrown from within a shutdown handler does not interrupt the shutdown sequence', async (t) => {
   const terminate = sinon.stub();
 

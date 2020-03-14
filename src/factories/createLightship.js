@@ -34,6 +34,7 @@ const log = Logger.child({
 const defaultConfiguration = {
   detectKubernetes: true,
   gracefulShutdownTimeout: 60000,
+  kubeProxyTimeout: 0,
   port: 9000,
   shutdownHandlerTimeout: 5000,
   signals: [
@@ -152,6 +153,10 @@ export default (userConfiguration?: ConfigurationInputType): LightshipType => {
 
       // $FlowFixMe
       gracefulShutdownTimeoutId.unref();
+    }
+
+    if (configuration.kubeProxyTimeout) {
+      await delay(configuration.kubeProxyTimeout);
     }
 
     // @see https://github.com/gajus/lightship/issues/12
